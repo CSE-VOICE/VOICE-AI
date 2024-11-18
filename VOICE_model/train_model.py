@@ -1,15 +1,19 @@
 import pandas as pd
 import torch 
 from torch.utils.data import DataLoader, Dataset
-import tqdm
-from transformers import T5TokenizerFast, T5ForConditionalGeneration, AdamW
+from tqdm import tqdm
+from transformers import T5TokenizerFast, T5ForConditionalGeneration
+from torch.optim import AdamW
 from sklearn.model_selection import train_test_split
 import os
-from torch.amp import autocast, GradScaler
+from torch.amp import autocast
+
+torch.mps.empty_cache()
 
 # Set device
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 print(f"Using device : {device}")
+
 
 # Load data
 def load_data(filepath):
@@ -73,8 +77,6 @@ checkpoint_dir = "model_checkpoints"
 if not os.path.exists(checkpoint_dir):
     os.makedirs(checkpoint_dir)
 
-# Mixed Precision
-scaler = GradScaler()
 
 # model train
 total_steps = 0
@@ -91,19 +93,20 @@ for epoch in range(num_epochs):
         
         # Train using GradScaler
         optimizer.zero_grad()
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
+        loss.backward()
+        optimizer.step()
 
         total_steps += 1
 
         if total_steps % log_interval == 0:
-            print(f"Epoch {epoch}, Step {total_steps}, Training Loss: {loss.item()}")
+            print(f"Epoch {epoch + 1}, Step {total_steps}, Training Loss: {loss.item()}")
 
         # save checkpoint for every 0.5 epoch
         if total_steps % int(len(train_dataset) / (batch_size * 2)) == 0:
             checkpoint_path = os.path.join(checkpoint_dir, f"checkpoint_{total_steps}")
             model.save_pretrained(checkpoint_path)
+    
+    torch.mps.empty_cache()
 
     # validation part
     model.eval()
@@ -119,6 +122,8 @@ for epoch in range(num_epochs):
                 val_loss += outputs.loss.item() * batch['input_ids'].size(0)
 
     val_loss /= len(val_dataset)
-    print(f"Epoch{epoch} : Validation Loss : {val_loss}")
+    print(f"Epoch{epoch + 1} : Validation Loss : {val_loss}")
+
+    torch.mps.empty_cache()
 
 model.save_pretrained(os.path.join(checkpoint_dir, "final_model"))
