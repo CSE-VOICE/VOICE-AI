@@ -64,8 +64,8 @@ DATASET_PATH = "../preprocessed_dataset.csv"
 df = load_data(DATASET_PATH)
 
 # Load Tokenizer & Model
-tokenizer = T5TokenizerFast.from_pretrained('paust/pko-chat-t5-large')
-model = T5ForConditionalGeneration.from_pretrained('paust/pko-chat-t5-large')
+tokenizer = T5TokenizerFast.from_pretrained('paust/pko-t5-base')
+model = T5ForConditionalGeneration.from_pretrained('paust/pko-t5-base')
 model.to(device)
 
 # Config LoRA
