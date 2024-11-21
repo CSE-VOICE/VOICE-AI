@@ -61,24 +61,24 @@ class InputData(BaseModel):
 @app.post('/recommend_routine/')
 async def recommend_routine(data: InputData):
     input_text = data.situation
-    # situation = input_template.format(input_text)
-    situation = input_text
+    situation = input_template.format(input_text)
+    # situation = input_text
     # convert to token & load to device
-    # input_ids = tokenizer(situation, return_tensors="pt").input_ids.to(device)
+    input_ids = tokenizer(situation, return_tensors="pt").input_ids.to(device)
 
-    # # model prediction
-    # outputs = model.generate(
-    #     input_ids,
-    #     max_length=1024,
-    #     temperature=0.5,
-    #     no_repeat_ngram_size=6,
-    #     do_sample=True,
-    #     num_return_sequences=1,
-    # )
+    # model prediction
+    outputs = model.generate(
+        input_ids,
+        max_length=1024,
+        temperature=0.5,
+        no_repeat_ngram_size=6,
+        do_sample=True,
+        num_return_sequences=1,
+    )
 
-    # routine = tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
+    routine = tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
 
-    routine = "시원해지시게끔 에어컨을 24도로 설정하고, 정수기에서 냉수를 뽑아드릴게요."
+    # routine = "시원해지시게끔 에어컨을 24도로 설정하고, 정수기에서 냉수 준비해드릴게요."
 
     routine_output = parsing_routine.parse_device_control(routine)
 
