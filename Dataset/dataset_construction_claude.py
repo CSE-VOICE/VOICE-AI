@@ -24,7 +24,6 @@ def create_routine_prompt() -> ChatPromptTemplate:
         - 정수기
         - 냉장고
         - 식기세척기
-        - 월패드
 
         특별히 제한된 설정값이 있는 기기:
         - 공기청정기: 세기/강도만 언급
