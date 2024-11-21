@@ -9,7 +9,10 @@ import os
 from torch.amp import autocast
 from peft import get_peft_model, LoraConfig, TaskType
 
-# Set device
+# Cuda GPU 
+# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+# Apple Silicon GPU
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 print(f"Using device : {device}")
 
@@ -74,7 +77,7 @@ lora_config = LoraConfig(
     r=8,
     lora_alpha=16,
     lora_dropout=0.1,
-    target_modules=["q", "v"],
+    target_modules=["q", "v", "k", "o"],
 )
 
 model = get_peft_model(model, lora_config)
@@ -113,7 +116,9 @@ for epoch in range(num_epochs):
         input_ids = batch['input_ids'].to(device)
         labels = batch['labels'].to(device)
 
-        # Enable Mixed Precision
+        # Enable Mixed Precision for Cuda GPU
+        # with autocast(device_type="cuda", dtype=torch.bfloat16):
+        # Enable Mixed Precision for Apple Silicon
         with autocast(device_type="mps", dtype=torch.float16):
             outputs = model(input_ids=input_ids, labels=labels)
             loss = outputs.loss
@@ -132,8 +137,7 @@ for epoch in range(num_epochs):
         if total_steps % int(len(train_dataset) / (batch_size * 2)) == 0:
             checkpoint_path = os.path.join(checkpoint_dir, f"checkpoint_{total_steps}")
             model.save_pretrained(checkpoint_path)
-    
-    torch.mps.empty_cache()
+
 
     # validation part
     model.eval()
@@ -143,7 +147,9 @@ for epoch in range(num_epochs):
             input_ids = batch['input_ids'].to(device)
             labels = batch['labels'].to(device)
 
-            # Enable Mixed Precision
+            # Enable Mixed Precision for Cuda GPU
+            # with autocast(device_type="cuda", dtype=torch.bfloat16):
+            # Enable Mixed Precision for Apple Silicon
             with autocast(device_type="mps", dtype=torch.float16):
                 outputs = model(input_ids=input_ids, labels=labels)
                 val_loss += outputs.loss.item() * batch['input_ids'].size(0)
@@ -151,6 +157,5 @@ for epoch in range(num_epochs):
     val_loss /= len(val_dataset)
     print(f"Epoch{epoch + 1} : Validation Loss : {val_loss}")
 
-    torch.mps.empty_cache()
 
 model.save_pretrained(os.path.join(checkpoint_dir, "final_model"))
