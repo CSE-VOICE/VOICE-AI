@@ -1,5 +1,6 @@
 import torch
 from transformers import T5TokenizerFast, T5ForConditionalGeneration
+from peft import PeftModel
 
 # # Cuda GPU 
 # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -9,8 +10,12 @@ device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 print(f"Using device : {device}")
 
 # Load tokenizer and trained model
-tokenizer = T5TokenizerFast.from_pretrained("paust/pko-chat-t5-large")
-model = T5ForConditionalGeneration.from_pretrained("model_checkpoints/final_model")
+tokenizer = T5TokenizerFast.from_pretrained("paust/pko-t5-base")
+base_model = T5ForConditionalGeneration.from_pretrained("paust/pko-t5-base")
+base_model.to(device)
+
+model = PeftModel.from_pretrained(base_model, "model_checkpoints/checkpoint_2374")
+model = model.merge_and_unload()
 model.to(device)
 
 input_template = '''
@@ -59,13 +64,10 @@ while True:
 
     # preprocess user Input
     prompt = input_template.format(user_input)
-    print(prompt)
     input_ids = tokenizer(prompt, return_tensors='pt').input_ids.to(device)
-    print(input_ids)
-
 
     # predict output using VOICE model
-    logits = model.generate(
+    logits = model.base_model.generate(
         input_ids,
         max_length=1024,
         temperature=0.5,
