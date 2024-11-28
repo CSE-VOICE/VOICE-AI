@@ -9,11 +9,11 @@ app = FastAPI()
 
 # # Load model 
 # Cuda GPU 
-# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-# Apple Silicon GPU
-device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# # Apple Silicon GPU
+# device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 tokenizer = T5TokenizerFast.from_pretrained("paust/pko-chat-t5-large")
-model = T5ForConditionalGeneration.from_pretrained("paust/pko-chat-t5-large")
+model = T5ForConditionalGeneration.from_pretrained("VOICE_model")
 model.to(device)
 
 input_template = '''
