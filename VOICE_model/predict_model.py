@@ -2,17 +2,22 @@ import torch
 from transformers import T5TokenizerFast, T5ForConditionalGeneration
 from peft import PeftModel
 
-# # Cuda GPU 
-# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# Cuda GPU 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-# Apple silicon GPU
-device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+# # Apple silicon GPU
+# device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 print(f"Using device : {device}")
 
 # Load tokenizer and trained model
-tokenizer = T5TokenizerFast.from_pretrained("paust/pko-t5-base")
-base_model = T5ForConditionalGeneration.from_pretrained("paust/pko-t5-base")
+tokenizer = T5TokenizerFast.from_pretrained("paust/pko-chat-t5-large")
+base_model = T5ForConditionalGeneration.from_pretrained("paust/pko-chat-t5-large")
 base_model.to(device)
+
+model_paths = ['checkpoint_1187', 'checkpoint_2374', 'checkpoint_3561', 'checkpoint_4748', 'checkpoint_5935', 'checkpoint_7122',
+               'checkpoint_8039', 'checkpoint_9496', 'checkpoint_10683', 'checkpoint_11870', 'checkpoint_13057', 'checkpoint_14244',
+               'checkpoint_15431', 'checkpoint_16618', 'checkpoint_17805', 'checkpoint_18992', 'checkpoint_20179', 'checkpoint_21366',
+               'checkpoint_22553', 'checkpoint_23740', 'final_model']
 
 model = PeftModel.from_pretrained(base_model, "model_checkpoints/checkpoint_2374")
 model = model.merge_and_unload()
@@ -60,7 +65,7 @@ input_template = input_template.replace("\n", " ").strip()
 # Check model output
 while True:
     # user Input
-    user_input = input("사용자: ")
+    user_input = input("상황: ")
 
     # preprocess user Input
     prompt = input_template.format(user_input)
@@ -79,4 +84,4 @@ while True:
     text = tokenizer.batch_decode(logits, skip_special_tokens=True)[0]
 
     # print response
-    print("친구:", text)
+    print("루틴 추천:", text)
