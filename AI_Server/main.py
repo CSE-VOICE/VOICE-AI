@@ -82,4 +82,6 @@ async def recommend_routine(data: InputData):
 
     routine_output = parsing_routine.parse_device_control(routine)
 
+    routine_output["situation"] = routine
+    
     return routine_output
