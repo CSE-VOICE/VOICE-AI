@@ -6,14 +6,13 @@ from transformers import T5TokenizerFast, T5ForConditionalGeneration
 from torch.optim import AdamW
 from sklearn.model_selection import train_test_split
 import os
-from torch.amp import autocast
 from peft import get_peft_model, LoraConfig, TaskType
 
 # Cuda GPU 
-# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-# Apple Silicon GPU
-device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+# # Apple Silicon GPU
+# device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 print(f"Using device : {device}")
 
 
@@ -68,7 +67,7 @@ df = load_data(DATASET_PATH)
 
 # Load Tokenizer & Model
 tokenizer = T5TokenizerFast.from_pretrained('paust/pko-chat-t5-large')
-model = T5ForConditionalGeneration.from_pretrained('paust/pko-chat-t5-large')
+model = T5ForConditionalGeneration.from_pretrained('paust/pko-chat-t5-large', torch_dtype=torch.bfloat16)
 model.to(device)
 
 # Config LoRA
@@ -116,12 +115,9 @@ for epoch in range(num_epochs):
         input_ids = batch['input_ids'].to(device)
         labels = batch['labels'].to(device)
 
-        # Enable Mixed Precision for Cuda GPU
-        # with autocast(device_type="cuda", dtype=torch.bfloat16):
-        # Enable Mixed Precision for Apple Silicon
-        with autocast(device_type="mps", dtype=torch.float16):
-            outputs = model(input_ids=input_ids, labels=labels)
-            loss = outputs.loss
+       
+        outputs = model(input_ids=input_ids, labels=labels)
+        loss = outputs.loss
         
         # Train using GradScaler
         optimizer.zero_grad()
@@ -147,12 +143,8 @@ for epoch in range(num_epochs):
             input_ids = batch['input_ids'].to(device)
             labels = batch['labels'].to(device)
 
-            # Enable Mixed Precision for Cuda GPU
-            # with autocast(device_type="cuda", dtype=torch.bfloat16):
-            # Enable Mixed Precision for Apple Silicon
-            with autocast(device_type="mps", dtype=torch.float16):
-                outputs = model(input_ids=input_ids, labels=labels)
-                val_loss += outputs.loss.item() * batch['input_ids'].size(0)
+            outputs = model(input_ids=input_ids, labels=labels)
+            val_loss += outputs.loss.item() * batch['input_ids'].size(0)
 
     val_loss /= len(val_dataset)
     print(f"Epoch{epoch + 1} : Validation Loss : {val_loss}")
