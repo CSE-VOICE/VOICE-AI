@@ -67,6 +67,7 @@ class InputData(BaseModel):
 # handling text based routine recommendation
 @app.post('/recommend_routine/')
 async def recommend_routine(data: InputData):
+    prev_response = dict()
     input_text = data.situation
     print(input_text)
     situation = input_template.format(input_text)
@@ -74,17 +75,23 @@ async def recommend_routine(data: InputData):
     # convert to token & load to device
     input_ids = tokenizer(situation, return_tensors="pt").input_ids.to(device)
 
-    # model prediction
-    outputs = model.generate(
-        input_ids,
-        max_length=1024,
-        temperature=0.5,
-        no_repeat_ngram_size=6,
-        do_sample=True,
-        num_return_sequences=1,
-    )
+    while True:
+        # model prediction
+        outputs = model.generate(
+            input_ids,
+            max_length=1024,
+            temperature=0.5,
+            no_repeat_ngram_size=6,
+            do_sample=True,
+            num_return_sequences=1,
+        )
 
-    routine = tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
+        routine = tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
+
+        # remove duplicated routine recommendation
+        if prev_response.get(input_text) == None or prev_response[input_text] != routine :
+            prev_response[input_text] = routine
+            break
 
     # routine = "시원해지시게끔 에어컨을 24도로 설정하고, 정수기에서 냉수 준비해드릴게요."
 
@@ -126,8 +133,8 @@ async def voice_analysis(audio: UploadFile = File(...)):
         # Send POST request to `/recommend_routine/`
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    "http://3.133.23.226:8000/recommend_routine/",
-                    # "http://127.0.0.1:8000/recommend_routine/",
+                    # "http://3.133.23.226:8000/recommend_routine/",
+                    "http://127.0.0.1:8000/recommend_routine/",
                     json={"situation": final_input},
                     timeout=60.0
                 )
