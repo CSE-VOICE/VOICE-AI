@@ -1,12 +1,15 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from pydantic import BaseModel
 from transformers import T5TokenizerFast, T5ForConditionalGeneration
 import torch
 import parsing_routine
+import audio_analysis
+import tempfile
+import os
+import httpx
+import emotion_mapping
 
-# Create FastAPI app
-app = FastAPI()
-
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 # # Load model 
 # Cuda GPU 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -15,6 +18,9 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 tokenizer = T5TokenizerFast.from_pretrained("paust/pko-chat-t5-large")
 model = T5ForConditionalGeneration.from_pretrained("VOICE_model")
 model.to(device)
+
+# Create FastAPI app
+app = FastAPI()
 
 input_template = '''
 당신은 모든 종류의 상황에서 적절한 가전기기 제어 루틴을 추천하는 AI입니다.
@@ -58,9 +64,11 @@ input_template = input_template.replace("\n", " ").strip()
 class InputData(BaseModel):
     situation: str
 
+# handling text based routine recommendation
 @app.post('/recommend_routine/')
 async def recommend_routine(data: InputData):
     input_text = data.situation
+    print(input_text)
     situation = input_template.format(input_text)
     # situation = input_text
     # convert to token & load to device
@@ -82,6 +90,60 @@ async def recommend_routine(data: InputData):
 
     routine_output = parsing_routine.parse_device_control(routine)
 
-    routine_output["situation"] = routine
+    routine_output["routine"] = routine
     
     return routine_output
+
+# handling voice audio file analysis & convert it into input text
+@app.post('/voice_analysis/')
+async def voice_analysis(audio: UploadFile = File(...)):
+    if audio.content_type != "audio/wave":
+        raise HTTPException(status_code=400, detail="Only .wav file format is supported!");
+
+    # save file temporarily
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+        file_path = tmp.name
+        tmp.write(await audio.read())
+
+    try:
+        # Google STT analysis
+        google_results = audio_analysis.analyze_with_google(file_path)
+        audio_analysis.print_google_results(google_results)
+
+        # Hume AI audio file analysis (extract extra verbal details)
+        hume_results = audio_analysis.analyze_with_hume(file_path)
+        audio_analysis.print_hume_results(hume_results)
+
+        if google_results and hume_results and 'error' not in google_results: 
+            print("\n=== 최종 분석 결과 ===")
+            print("-" * 40)
+            text = google_results['text']
+            top_emotion = audio_analysis.get_top_emotion(hume_results)
+            print(f"{text} ({top_emotion})")
+            top_emotion = emotion_mapping.map_emotion(top_emotion)
+            final_input = f"{text} ({top_emotion})"
+
+        # Send POST request to `/recommend_routine/`
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "http://3.133.23.226:8000/recommend_routine/",
+                    # "http://127.0.0.1:8000/recommend_routine/",
+                    json={"situation": final_input},
+                    timeout=60.0
+                )
+
+            # Check if the request was successful
+            if response.status_code == 200:
+                return response.json()
+            else:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Failed to get routine: {response.text}"
+                )
+    finally:
+        # delete temporarily save file
+        if os.path.exists(file_path):
+                    os.remove(file_path)
+
+
+    
